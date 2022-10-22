@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
 
 namespace Inheritance.Geometry
 {
@@ -9,20 +8,6 @@ namespace Inheritance.Geometry
         public double X { get; }
         public double Y { get; }
         public double Z { get; }
-
-        public double this[int index]
-        {
-	        get
-	        {
-		        switch (index)
-		        {
-					case 0: return X;
-					case 1: return Y;
-					case 2: return Z;
-					default: throw new IndexOutOfRangeException();
-		        }
-	        }
-        }
 
         public Vector3(double x, double y, double z)
         {
