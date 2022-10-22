@@ -4,61 +4,23 @@ using System.Linq;
 
 namespace Inheritance.Geometry.Virtual
 {
-    public class Body
+    public abstract class Body
     {
         public Vector3 Position { get; }
+        public double MinX { get; set; }
+        public double MaxX { get; set; }
+        public double MinY { get; set; }
+        public double MaxY { get; set; }
+        public double MinZ { get; set; }
+        public double MaxZ { get; set; }
 
         protected Body(Vector3 position)
         {
             Position = position;
         }
 
-        public bool ContainsPoint(Vector3 point)
-        {
-            if (this is Ball ball)
-            {
-                var vector = point - Position;
-                var length2 = vector.GetLength2();
-                return length2 <= ball.Radius * ball.Radius;
-            }
-
-            if (this is RectangularCuboid cuboid)
-            {
-                var minPoint = new Vector3(
-                    Position.X - cuboid.SizeX / 2,
-                    Position.Y - cuboid.SizeY / 2,
-                    Position.Z - cuboid.SizeZ / 2);
-                var maxPoint = new Vector3(
-                    Position.X + cuboid.SizeX / 2,
-                    Position.Y + cuboid.SizeY / 2,
-                    Position.Z + cuboid.SizeZ / 2);
-
-                return point >= minPoint && point <= maxPoint;
-            }
-
-            if (this is Cylinder cylinder)
-            {
-                var vectorX = point.X - Position.X;
-                var vectorY = point.Y - Position.Y;
-                var length2 = vectorX * vectorX + vectorY * vectorY;
-                var minZ = Position.Z - cylinder.SizeZ / 2;
-                var maxZ = minZ + cylinder.SizeZ;
-
-                return length2 <= cylinder.Radius * cylinder.Radius && point.Z >= minZ && point.Z <= maxZ;
-            }
-
-            if (this is CompoundBody compound)
-            {
-                return compound.Parts.Any(body => body.ContainsPoint(point));
-            }
-
-            throw new NotImplementedException("Unknown figure!");
-        }
-
-        public RectangularCuboid GetBoundingBox()
-        {
-            throw new NotImplementedException("TODO");
-        }
+        public abstract bool ContainsPoint(Vector3 point);
+        public abstract RectangularCuboid GetBoundingBox();
     }
 
     public class Ball : Body
@@ -68,6 +30,24 @@ namespace Inheritance.Geometry.Virtual
         public Ball(Vector3 position, double radius) : base(position)
         {
             Radius = radius;
+            MinX = position.X - Radius;
+            MaxX = position.X + Radius;
+            MinY = position.Y - Radius;
+            MaxY = position.Y + Radius;
+            MinZ = position.Z - Radius;
+            MaxZ = position.Z + Radius;
+        }
+
+        public override bool ContainsPoint(Vector3 point)
+        {
+            var vector = point - Position;
+            var length2 = vector.GetLength2();
+            return length2 <= Radius * Radius;
+        }
+
+        public override RectangularCuboid GetBoundingBox()
+        {
+            return new RectangularCuboid(Position, 2 * Radius, 2 * Radius, 2 * Radius);
         }
     }
 
@@ -82,19 +62,65 @@ namespace Inheritance.Geometry.Virtual
             SizeX = sizeX;
             SizeY = sizeY;
             SizeZ = sizeZ;
+            MinX = position.X - sizeX / 2;
+            MaxX = position.X + sizeX / 2;
+            MinY = position.Y - sizeY / 2;
+            MaxY = position.Y + sizeY / 2;
+            MinZ = position.Z - sizeZ / 2;
+            MaxZ = position.Z + sizeZ / 2;
+        }
+
+        public override bool ContainsPoint(Vector3 point)
+        {
+            var minPoint = new Vector3(
+                Position.X - SizeX / 2,
+                Position.Y - SizeY / 2,
+                Position.Z - SizeZ / 2);
+            var maxPoint = new Vector3(
+                Position.X + SizeX / 2,
+                Position.Y + SizeY / 2,
+                Position.Z + SizeZ / 2);
+
+            return point >= minPoint && point <= maxPoint;
+        }
+
+        public override RectangularCuboid GetBoundingBox()
+        {
+            return this;
         }
     }
 
     public class Cylinder : Body
     {
         public double SizeZ { get; }
-
         public double Radius { get; }
 
         public Cylinder(Vector3 position, double sizeZ, double radius) : base(position)
         {
             SizeZ = sizeZ;
             Radius = radius;
+            MinX = position.X - radius;
+            MaxX = position.X + radius;
+            MinY = position.Y - radius;
+            MaxY = position.Y + radius;
+            MinZ = position.Z - sizeZ / 2;
+            MaxZ = position.Z + sizeZ / 2;
+        }
+
+        public override bool ContainsPoint(Vector3 point)
+        {
+            var vectorX = point.X - Position.X;
+            var vectorY = point.Y - Position.Y;
+            var length2 = vectorX * vectorX + vectorY * vectorY;
+            var minZ = Position.Z - SizeZ / 2;
+            var maxZ = minZ + SizeZ;
+
+            return length2 <= Radius * Radius && point.Z >= minZ && point.Z <= maxZ;
+        }
+
+        public override RectangularCuboid GetBoundingBox()
+        {
+            return new RectangularCuboid(Position, 2 * Radius, 2 * Radius, SizeZ);
         }
     }
 
@@ -105,6 +131,26 @@ namespace Inheritance.Geometry.Virtual
         public CompoundBody(IReadOnlyList<Body> parts) : base(parts[0].Position)
         {
             Parts = parts;
+            MinX = Parts.Min(p => p.MinX);
+            MaxX = Parts.Max(p => p.MaxX);
+            MinY = Parts.Min(p => p.MinY);
+            MaxY = Parts.Max(p => p.MaxY);
+            MinZ = Parts.Min(p => p.MinZ);
+            MaxZ = Parts.Max(p => p.MaxZ);
+        }
+
+        public override bool ContainsPoint(Vector3 point)
+        {
+            return Parts.Any(body => body.ContainsPoint(point));
+        }
+
+        public override RectangularCuboid GetBoundingBox()
+        {
+            var sizeX = Math.Abs(MaxX - MinX);
+            var sizeY = Math.Abs(MaxY - MinY);
+            var sizeZ = Math.Abs(MaxZ - MinZ);
+            var position = new Vector3((MaxX + MinX) / 2, (MaxY + MinY) / 2, (MaxZ + MinZ) / 2);
+            return new RectangularCuboid(position, sizeX, sizeY, sizeZ);
         }
     }
 }
